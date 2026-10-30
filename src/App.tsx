@@ -129,6 +129,48 @@ const pomXml = `<?xml version="1.0" encoding="UTF-8"?>
     </build>
 </project>`;
 
+const githubActionsYml = `name: Build Rwapi Plugin
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn clean package -B
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rwapi-Plugin
+          path: target/Rwapi-*.jar
+          retention-days: 30
+
+      - name: Create Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/Rwapi-*.jar
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}`;
+
 // ========================
 // КОМПОНЕНТЫ UI
 // ========================
@@ -252,6 +294,19 @@ export default function App() {
       zip.file('src/main/resources/plugin.yml', pluginYml);
       zip.file('src/main/java/studio/slay/rwapi/RwapiPlugin.java', rwapiPluginJava);
 
+      // GitHub Actions workflow
+      zip.file('.github/workflows/build.yml', githubActionsYml);
+
+      // .gitignore
+      const gitignore = `target/
+*.class
+*.jar
+*.log
+.idea/
+*.iml
+.DS_Store`;
+      zip.file('.gitignore', gitignore);
+
       // README с инструкцией
       const readme = `# Rwapi Plugin v1.0.0
 ## Автор: slaystudio
@@ -268,10 +323,18 @@ export default function App() {
 ### Совместимость
 Paper/Spigot 1.16.5 - 1.21
 
-### Сборка
+### Локальная сборка
 \`\`\`bash
 mvn clean package
 \`\`\`
+
+### GitHub Actions
+Проект содержит настроенный GitHub Actions workflow. При пуше в main/master плагин автоматически соберётся, и JAR будет доступен в Artifacts.
+
+Чтобы использовать:
+1. Запушьте код в репозиторий на GitHub
+2. Перейдите в Actions — сборка запустится автоматически
+3. Скачайте готовый JAR из Artifacts
 
 ### Установка
 Скопируйте \`target/Rwapi-1.0.0.jar\` в папку \`plugins/\` вашего сервера и перезапустите.
@@ -347,6 +410,12 @@ mvn clean package
               icon={<span className="text-base">📦</span>}
               variant="secondary"
             />
+            <DownloadButton
+              onClick={() => downloadFile(githubActionsYml, 'build.yml', 'text/yaml')}
+              label="build.yml (Actions)"
+              icon={<span className="text-base">⚙️</span>}
+              variant="secondary"
+            />
           </div>
         </section>
 
@@ -381,6 +450,9 @@ mvn clean package
           <div className="bg-gray-950 rounded-xl border border-gray-700 p-4 font-mono text-sm">
             <div className="text-yellow-400">📁 Rwapi/</div>
             <div className="pl-4 text-blue-400">📄 pom.xml</div>
+            <div className="pl-4 text-gray-400">📄 .gitignore</div>
+            <div className="pl-4 text-yellow-400">📁 .github/workflows/</div>
+            <div className="pl-8 text-orange-400">📄 build.yml</div>
             <div className="pl-4 text-yellow-400">📁 src/main/</div>
             <div className="pl-8 text-yellow-400">📁 java/studio/slay/rwapi/</div>
             <div className="pl-12 text-green-400">📄 RwapiPlugin.java</div>
@@ -412,6 +484,12 @@ mvn clean package
             language="XML"
             filename="pom.xml"
             onDownload={() => downloadFile(pomXml, 'pom.xml', 'text/xml')}
+          />
+          <CodeBlock
+            code={githubActionsYml}
+            language="YAML"
+            filename=".github/workflows/build.yml"
+            onDownload={() => downloadFile(githubActionsYml, 'build.yml', 'text/yaml')}
           />
         </section>
 
@@ -459,6 +537,26 @@ mvn clean package
                 <strong>Требования:</strong> JDK 17+, Maven 3.6+. Для Spigot вместо Paper API замени зависимость в pom.xml на <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs">org.spigotmc:spigot-api</code>.
               </span>
             </p>
+          </div>
+
+          {/* GitHub Actions Section */}
+          <div className="mt-6 p-4 bg-blue-900/20 border border-blue-800 rounded-xl">
+            <h3 className="text-blue-300 font-semibold mb-2 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+              </svg>
+              Автоматическая сборка через GitHub Actions
+            </h3>
+            <p className="text-blue-200 text-sm mb-3">
+              В проект уже включён файл <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs">.github/workflows/build.yml</code>. 
+              При пуше в репозиторий GitHub автоматически соберёт плагин.
+            </p>
+            <ol className="text-blue-200 text-sm space-y-1.5 list-decimal list-inside">
+              <li>Создай репозиторий на GitHub</li>
+              <li>Запушь все файлы: <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs">git push origin main</code></li>
+              <li>Перейди в <strong>Actions</strong> — сборка запустится сама</li>
+              <li>Скачай готовый JAR из <strong>Artifacts</strong></li>
+            </ol>
           </div>
         </section>
 
