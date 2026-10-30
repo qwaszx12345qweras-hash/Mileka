@@ -1,0 +1,5 @@
+name: Rwapi
+author: slaystudio
+main: studio.slay.rwapi.RwapiPlugin
+version: 1.0.0
+api-version: 1.16
